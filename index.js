@@ -70,10 +70,10 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
   constructor(name, params) {
     super();
     this.name = name;
-    this.params = params;
+    this.params = params || [];
   }
   toString() {
-    return `${this.name}(${this.params.reduce((res, x, i) => (i ? `${res}, ${x}` : x))})`;
+    return this.params.length ? `${this.name}(${this.params.reduce((res, x, i) => (i ? `${res}, ${x}` : x))})` : this.name;
   }
 };
 Expressions.Repeat = class Repeat extends Expressions.Instruction {
@@ -319,26 +319,34 @@ const Tokens = {
         return new Expressions.Procedure('clock', [crontab]);
       }
     },
+    CreatePoll: class CreatePoll extends Token {
+      constructor(parser) {
+        super(100, 'create-poll', parser);
+      }
+      nud() {
+        this.parser.skipToken(Tokens.Operators.LeftParentheses);
+        const title = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        this.parser.skipToken(Tokens.Operators.RightParentheses);
+        return new Expressions.Procedure('create-poll', [title]);
+      }
+    },
+    ClosePoll: class ClosePoll extends Token {
+      constructor(parser) {
+        super(100, 'close-poll', parser);
+      }
+      nud() {
+        return new Expressions.Procedure(this.symbol);
+      }
+    },
     Kill: class Kill extends Token {
       constructor(parser) {
         super(100, 'kill', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const crontab = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        const pid = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
         this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('kill', [crontab]);
-      }
-    },
-    Poll: class Poll extends Token {
-      constructor(parser) {
-        super(100, 'poll', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const choice = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('poll', [choice]);
+        return new Expressions.Procedure('kill', [pid]);
       }
     },
     Post: class Post extends Token {
@@ -373,7 +381,7 @@ const Tokens = {
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const message = this.parser.parseExpression(0, Expressions.String);
+        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
         this.parser.skipToken(Tokens.Operators.RightParentheses);
         return new Expressions.Procedure('say', [message]);
       }
@@ -384,9 +392,20 @@ const Tokens = {
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const message = this.parser.parseExpression(0, Expressions.String);
+        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
         this.parser.skipToken(Tokens.Operators.RightParentheses);
         return new Expressions.Procedure('signal', [message]);
+      }
+    },
+    Vote: class Vote extends Token {
+      constructor(parser) {
+        super(100, 'vote', parser);
+      }
+      nud() {
+        this.parser.skipToken(Tokens.Operators.LeftParentheses);
+        const choice = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        this.parser.skipToken(Tokens.Operators.RightParentheses);
+        return new Expressions.Procedure('vote', [choice]);
       }
     },
   },
@@ -407,7 +426,7 @@ class SculpParser {
    * @returns {IterableIterator<Token>}
    */
   * tokenizeRaw(raw) {
-    const tokenRegex = /\s*(\|\||\w+|[^\w\s])/y;
+    const tokenRegex = /\s*(\|\||[\w-]+|[^\w\s])/y;
     let stringStart = 0;
     let token = tokenRegex.exec(raw);
     while (token) {
@@ -443,8 +462,10 @@ class SculpParser {
 
           // Procedures
           case 'clock': yield new Tokens.Procedures.Clock(this); break;
+          case 'close-poll': yield new Tokens.Procedures.ClosePoll(this); break;
+          case 'create-poll': yield new Tokens.Procedures.CreatePoll(this); break;
           case 'kill': yield new Tokens.Procedures.Kill(this); break;
-          case 'poll': yield new Tokens.Procedures.Poll(this); break;
+          case 'vote': yield new Tokens.Procedures.Vote(this); break;
           case 'post': yield new Tokens.Procedures.Post(this); break;
           case 'rm': yield new Tokens.Procedures.Remove(this); break;
           case 'signal': yield new Tokens.Procedures.Signal(this); break;
