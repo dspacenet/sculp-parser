@@ -1,0 +1,29 @@
+{
+  "name": "sculp-parser",
+  "version": "1.0.0",
+  "description": "TDOP SCULP Parser",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dspacenet/sculp-parser.git"
+  },
+  "keywords": [
+    "tdop",
+    "sccp",
+    "parser"
+  ],
+  "author": "Jason Sebastian Lopez <sebastianlopezn@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dspacenet/sculp-parser/issues"
+  },
+  "homepage": "https://github.com/dspacenet/sculp-parser#readme",
+  "devDependencies": {
+    "eslint": "^4.19.1",
+    "eslint-config-airbnb-base": "^12.1.0",
+    "eslint-plugin-import": "^2.10.0"
+  }
+}
