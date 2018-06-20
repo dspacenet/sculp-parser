@@ -564,7 +564,8 @@ class SculpParser {
    * @returns {Expressions.Statement}
    */
   parseExpression(rightBindingPower = 0, accepted) {
-    accepted = accepted[0] ? accepted : [accepted]; // eslint-disable-line no-param-reassign
+    accepted = // eslint-disable-line no-param-reassign
+      !accepted || accepted[0] ? accepted : [accepted];
     let currentToken = this.token;
     this.nextToken();
     let left = currentToken.nud();
@@ -573,7 +574,7 @@ class SculpParser {
       this.nextToken();
       left = currentToken.led(left);
     }
-    if (!accepted[0] || accepted.some(className => left instanceof className)) {
+    if (!accepted || accepted.some(className => left instanceof className)) {
       return left;
     }
     throw new SyntaxError(`Expecting ${accepted.reduce((res, x, i) => (i ? `${res} or ${x}` : x))} but found ${left.constructor.name}`);
