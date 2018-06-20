@@ -34,7 +34,7 @@ class Expression {
     const newContext = fn(this, context);
     if (newContext !== false) {
       Object.getOwnPropertyNames(this).forEach((child) => {
-        if (this[child] instanceof Expression) child.traverse(fn, newContext);
+        if (this[child] instanceof Expression) this[child].traverse(fn, newContext);
       });
     }
   }
