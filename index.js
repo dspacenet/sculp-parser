@@ -20,11 +20,32 @@ class Token {
   }
 }
 
+class Expression {
+  /**
+   * Calls function [fn] with the current expression and [context] as parameter,
+   * then traverse is called recursively over the children expressions, using
+   * [fn] and the context returned from previous [fn] call as parameter,
+   *
+   * If [fn] return false, the propagation is stopped.
+   * @param {function(Expression, Object): Object} fn
+   * @param {Object} context
+   */
+  traverse(fn, context) {
+    const newContext = fn(this, context);
+    if (newContext !== false) {
+      Object.getOwnPropertyNames(this).forEach((child) => {
+        if (this[child] instanceof Expression) child.traverse(fn, newContext);
+      });
+    }
+  }
+}
+
 const Expressions = {};
-Expressions.Statement = class Statement {};
+Expressions.Statement = class Statement extends Expression {};
 Expressions.Instruction = class Instruction extends Expressions.Statement {};
-Expressions.Pattern = class Pattern {
+Expressions.Pattern = class Pattern extends Expression {
   constructor(value) {
+    super();
     this.value = value;
   }
   toString() {
@@ -62,6 +83,10 @@ Expressions.ParallelExecution = class ParallelExecution extends Expressions.Stat
     this.statements = left instanceof Expressions.ParallelExecution ? left.statements : [left];
     this.statements.push(right);
   }
+  traverse(fn, context) {
+    const newContext = fn(this, context);
+    this.statements.forEach(statement => statement.traverse(fn, newContext));
+  }
   toString() {
     return `(${this.statements.reduce((res, x, i) => (i ? `${res} || ${x}` : x))})`;
   }
@@ -71,6 +96,19 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     super();
     this.name = name;
     this.params = params || [];
+  }
+  traverse(fn, context) {
+    const newContext = fn(this, context);
+    this.params.forEach(param => param.traverse(fn, newContext));
+  }
+  pushParam(param) {
+    if (typeof param === 'string') {
+      this.params.push(new Expressions.String(param));
+    } else if (param instanceof Expression) {
+      this.params.push(param);
+    } else {
+      throw new Error(`param type ${param.constructor.className} is not String or Expression`);
+    }
   }
   toString() {
     return this.params.length ? `${this.name}(${this.params.reduce((res, x, i) => (i ? `${res}, ${x}` : x))})` : this.name;
@@ -525,6 +563,21 @@ class SculpParser {
       return left;
     }
     throw new SyntaxError(`Expecting ${accepted.reduce((res, x, i) => (i ? `${res} or ${x}` : x))} but found ${left.constructor.name}`);
+  }
+
+  /**
+   * Apply [fn] to all expression of the given [classes]
+   * @param {Function|[Function]} classes
+   * @param {function(Expression)} fn
+   */
+  applyTo(classes, fn) {
+    this.result.traverse((expression) => {
+      if ((classes[0] && classes.some(className => expression instanceof className)) ||
+          expression instanceof classes
+      ) {
+        fn(expression);
+      }
+    });
   }
 }
 
