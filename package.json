@@ -1,6 +1,6 @@
 {
   "name": "sculp-parser",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "TDOP SCULP Parser",
   "main": "index.js",
   "scripts": {

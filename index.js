@@ -173,7 +173,7 @@ Expressions.Unless = class Unless extends Expressions.Instruction {
     return `unless ${this.condition} do ${this.statement}`;
   }
 };
-Expression.Skip = class Skip extends Expressions.Instruction {
+Expressions.Skip = class Skip extends Expressions.Instruction {
   toString() { // eslint-disable-line class-methods-use-this
     return 'skip';
   }
