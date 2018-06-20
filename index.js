@@ -576,6 +576,12 @@ class SculpParser {
       if (classes.some(className => expression instanceof className)) fn(expression);
     });
   }
+  toString() {
+    return this.result.toString();
+  }
+  traverse(fn) {
+    return this.result.traverse(fn);
+  }
 }
 
 module.exports = { SculpParser, Expressions, Tokens };
