@@ -173,6 +173,11 @@ Expressions.Unless = class Unless extends Expressions.Instruction {
     return `unless ${this.condition} do ${this.statement}`;
   }
 };
+Expression.Skip = class Skip extends Expressions.Instruction {
+  toString() { // eslint-disable-line class-methods-use-this
+    return 'skip';
+  }
+};
 
 const Tokens = {
   End: class End extends Token {
@@ -218,6 +223,14 @@ const Tokens = {
       nud() {
         const statement = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
         return new Expressions.Repeat(statement);
+      }
+    },
+    Skip: class Skip extends Token {
+      constructor(parser) {
+        super(90, 'skip', parser);
+      }
+      nud() { // eslint-disable-line class-methods-use-this
+        return new Expressions.Skip();
       }
     },
     Unless: class Unless extends Token {
@@ -493,6 +506,7 @@ class SculpParser {
           case 'enter': yield new Tokens.Instructions.Enter(this); break;
           case 'exit': yield new Tokens.Instructions.Exit(this); break;
           case 'repeat': yield new Tokens.Instructions.Repeat(this); break;
+          case 'skip': yield new Tokens.Instructions.Skip(this); break;
           case 'until': yield new Tokens.Instructions.Until(this); break;
           case 'unless': yield new Tokens.Instructions.Unless(this); break;
           case 'when': yield new Tokens.Instructions.When(this); break;
