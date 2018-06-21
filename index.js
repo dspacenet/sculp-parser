@@ -107,7 +107,7 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     } else if (param instanceof Expression) {
       this.params.push(param);
     } else {
-      throw new Error(`param type ${param.constructor.className} is not String or Expression`);
+      throw new TypeError(`param type ${param.constructor.className} is not String or Expression`);
     }
   }
   toString() {
@@ -120,7 +120,7 @@ Expressions.Repeat = class Repeat extends Expressions.Instruction {
     this.statement = statement;
   }
   toString() {
-    return `next ${this.statement}`;
+    return `repeat ${this.statement}`;
   }
 };
 Expressions.SequentialExecution = class SequentialExecution extends Expressions.Statement {
