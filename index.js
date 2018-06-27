@@ -581,8 +581,8 @@ class SculpParser {
     if (!accepted || accepted.some(className => left instanceof className)) {
       return left;
     }
-    const acceptedNames = accepted.map(className => className.constructor.name).reduce((res, x, i) => (i ? `${res} or ${x}` : x));
-    throw new SyntaxError(`Expecting ${acceptedNames} but found ${left.constructor.name}`);
+    const acceptedNames = accepted.map(className => className.name).reduce((res, x, i) => (i ? `${res} or ${x}` : x));
+    throw new SyntaxError(`Expecting ${acceptedNames} but found ${left.constructor.name}.`);
   }
 
   /**
