@@ -216,6 +216,22 @@ const Tokens = {
         return new Expressions.Enter(spaceId, statement);
       }
     },
+    Next: class Next extends Token {
+      constructor(parser) {
+        super(15, 'next', parser);
+      }
+      nud() {
+        const statement = this.parser.parseExpression(this.leftBindingPower, Expression.Statement);
+        return new Expressions.SequentialExecution(new Expressions.Skip(), statement);
+      }
+      led(left) {
+        const right = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
+        if (left instanceof Expressions.Statement) {
+          return new Expressions.SequentialExecution(left, right);
+        }
+        throw SyntaxError(`Expecting Statement but found ${left.constructor.name}`);
+      }
+    },
     Repeat: class Repeat extends Token {
       constructor(parser) {
         super(10, 'repeat', parser);
@@ -341,18 +357,6 @@ const Tokens = {
         const right = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
         if (left instanceof Expressions.Statement) {
           return new Expressions.ParallelExecution(left, right);
-        }
-        throw SyntaxError(`Expecting Statement but found ${left.constructor.name}`);
-      }
-    },
-    Next: class Next extends Token {
-      constructor(parser) {
-        super(15, 'next', parser);
-      }
-      led(left) {
-        const right = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
-        if (left instanceof Expressions.Statement) {
-          return new Expressions.SequentialExecution(left, right);
         }
         throw SyntaxError(`Expecting Statement but found ${left.constructor.name}`);
       }
@@ -499,7 +503,6 @@ class SculpParser {
           case ')': yield new Tokens.Operators.RightParentheses(this); break;
           case ',': yield new Tokens.Operators.ListSeparator(this); break;
           case '||': yield new Tokens.Operators.Parallel(this); break;
-          case 'next': yield new Tokens.Operators.Next(this); break;
 
           // Instructions
           case 'do': yield new Tokens.Instructions.Do(this); break;
@@ -511,6 +514,7 @@ class SculpParser {
           case 'unless': yield new Tokens.Instructions.Unless(this); break;
           case 'when': yield new Tokens.Instructions.When(this); break;
           case 'whenever': yield new Tokens.Instructions.Whenever(this); break;
+          case 'next': yield new Tokens.Instructions.Next(this); break;
 
           // Procedures
           case 'clock': yield new Tokens.Procedures.Clock(this); break;
