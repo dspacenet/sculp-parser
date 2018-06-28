@@ -312,6 +312,12 @@ const Tokens = {
         return new Expressions.String(this.value);
       }
     },
+    Number: class Number extends Token {
+      constructor(value, parser) {
+        super(0, 'number', parser);
+        this.value = value;
+      }
+    },
   },
   Operators: {
     LeftParentheses: class LeftParentheses extends Token {
