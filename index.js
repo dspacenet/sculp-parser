@@ -114,6 +114,14 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     return this.params.length ? `${this.name}(${this.params.reduce((res, x, i) => (i ? `${res}, ${x}` : x))})` : this.name;
   }
 };
+Expressions.Notify = class Notify extends Expressions.Procedure {
+  constructor(message) {
+    super('notify', [message]);
+  }
+  toString() {
+    return `enter @ "inbox" do post(${this.params[0]})`;
+  }
+};
 Expressions.Repeat = class Repeat extends Expressions.Instruction {
   constructor(statement) {
     super();
@@ -404,6 +412,17 @@ const Tokens = {
         return new Expressions.Procedure('kill', [pid]);
       }
     },
+    Notify: class Notify extends Token {
+      constructor(parser) {
+        super(100, 'notify', parser);
+      }
+      nud() {
+        this.parser.skipToken(Tokens.Operators.LeftParentheses);
+        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        this.parser.skipToken(Tokens.Operators.RightParentheses);
+        return new Expressions.Notify(message);
+      }
+    },
     Post: class Post extends Token {
       constructor(parser) {
         super(100, 'post', parser);
@@ -521,11 +540,12 @@ class SculpParser {
           case 'close-poll': yield new Tokens.Procedures.ClosePoll(this); break;
           case 'create-poll': yield new Tokens.Procedures.CreatePoll(this); break;
           case 'kill': yield new Tokens.Procedures.Kill(this); break;
-          case 'vote': yield new Tokens.Procedures.Vote(this); break;
+          case 'notify': yield new Tokens.Procedures.Notify(this); break;
           case 'post': yield new Tokens.Procedures.Post(this); break;
           case 'rm': yield new Tokens.Procedures.Remove(this); break;
           case 'signal': yield new Tokens.Procedures.Signal(this); break;
           case 'say': yield new Tokens.Procedures.Say(this); break;
+          case 'vote': yield new Tokens.Procedures.Vote(this); break;
 
           // Literals
           case '"': stringStart = tokenRegex.lastIndex; break;
