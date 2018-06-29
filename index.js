@@ -104,8 +104,8 @@ Expressions.Exit = class Exit extends Expressions.Instruction {
 Expressions.ParallelExecution = class ParallelExecution extends Expressions.Statement {
   constructor(left, right) {
     super();
-    this.statements = left instanceof Expressions.ParallelExecution ? left.statements : [left];
-    this.statements.push(right);
+    this.statements = right instanceof Expressions.ParallelExecution ? right.statements : [right];
+    this.statements.unshift(left);
   }
   toString() {
     return `(${this.statements.reduce((res, x, i) => (i ? `${res} || ${x}` : x))})`;
