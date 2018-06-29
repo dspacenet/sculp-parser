@@ -72,6 +72,15 @@ Expressions.String = class String extends Expressions.Pattern {
     return `"${this.value}"`;
   }
 };
+Expressions.Number = class Number extends Expression {
+  constructor(value) {
+    super();
+    this.value = value;
+  }
+  toString() {
+    return `${this.value}`;
+  }
+};
 Expressions.Enter = class Enter extends Expressions.Instruction {
   constructor(spaceId, statement) {
     super();
