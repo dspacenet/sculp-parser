@@ -42,6 +42,17 @@ class Expression {
       });
     }
   }
+  patch(fn) {
+    const expression = fn(this);
+    Object.getOwnPropertyNames(expression).forEach((child) => {
+      if (expression[child] instanceof Expression) {
+        expression[child] = expression[child].patch(fn);
+      } else if (expression[child] instanceof Array) {
+        expression.patch.call(expression[child], fn);
+      }
+    });
+    return expression;
+  }
 }
 
 const Expressions = {};
@@ -633,6 +644,15 @@ class SculpParser {
    */
   traverse(fn) {
     return this.result.traverse(fn);
+  }
+  /**
+   * Calls the function **fn** over all nodes of the abstract syntax tree, using
+   * the current expression as parameter, then the expression returned by **fn**
+   * is used to replace the current expression
+   * @param {function(Expression)} fn
+   */
+  patch(fn) {
+    this.result = this.result.patch(fn);
   }
 }
 
