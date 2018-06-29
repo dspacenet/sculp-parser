@@ -31,10 +31,14 @@ class Expression {
    * @param {Object} context
    */
   traverse(fn, context) {
-    const newContext = fn(this, context);
+    const newContext = fn(this, Object.assign({}, context));
     if (newContext !== false) {
       Object.getOwnPropertyNames(this).forEach((child) => {
-        if (this[child] instanceof Expression) this[child].traverse(fn, newContext);
+        if (this[child] instanceof Expression) {
+          this[child].traverse(fn, newContext);
+        } else if (this[child] instanceof Array) {
+          this.traverse.call(this[child], fn, newContext);
+        }
       });
     }
   }
@@ -83,10 +87,6 @@ Expressions.ParallelExecution = class ParallelExecution extends Expressions.Stat
     this.statements = left instanceof Expressions.ParallelExecution ? left.statements : [left];
     this.statements.push(right);
   }
-  traverse(fn, context) {
-    const newContext = fn(this, context);
-    this.statements.forEach(statement => statement.traverse(fn, newContext));
-  }
   toString() {
     return `(${this.statements.reduce((res, x, i) => (i ? `${res} || ${x}` : x))})`;
   }
@@ -96,10 +96,6 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     super();
     this.name = name;
     this.params = params || [];
-  }
-  traverse(fn, context) {
-    const newContext = fn(this, context);
-    this.params.forEach(param => param.traverse(fn, newContext));
   }
   pushParam(param) {
     if (typeof param === 'string') {
@@ -625,6 +621,16 @@ class SculpParser {
   toString() {
     return this.result.toString();
   }
+  /**
+   * Calls the function **fn** over all nodes of the abstract syntax tree, using
+   * the current expression and the given **context** as parameter, then
+   * traverse is called recursively over the children expressions, using **fn**
+   * and the context returned from previous **fn** call as parameter,
+   *
+   * If **fn** returns false, the propagation is stopped.
+   * @param {function(Expression, Object): Object} fn
+   * @param {Object} contexts
+   */
   traverse(fn) {
     return this.result.traverse(fn);
   }
