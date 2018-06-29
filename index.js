@@ -88,7 +88,7 @@ Expressions.Enter = class Enter extends Expressions.Instruction {
     this.statement = statement;
   }
   toString() {
-    return `enter @ ${this.spaceId} do ${this.statement}`;
+    return `enter ${this.spaceId} do ${this.statement}`;
   }
 };
 Expressions.Exit = class Exit extends Expressions.Instruction {
@@ -98,7 +98,7 @@ Expressions.Exit = class Exit extends Expressions.Instruction {
     this.statement = statement;
   }
   toString() {
-    return `exit @ ${this.spaceId} do ${this.statement}`;
+    return `exit ${this.spaceId} do ${this.statement}`;
   }
 };
 Expressions.ParallelExecution = class ParallelExecution extends Expressions.Statement {
@@ -202,6 +202,15 @@ Expressions.Skip = class Skip extends Expressions.Instruction {
     return 'skip';
   }
 };
+Expressions.SpacePath = class SpacePath extends Expressions.Instruction {
+  constructor(path) {
+    super();
+    this.path = path;
+  }
+  toString() {
+    return `@ ${this.path}`;
+  }
+};
 
 const Tokens = {
   End: class End extends Token {
@@ -220,12 +229,10 @@ const Tokens = {
         super(10, 'exit', parser);
       }
       nud() {
-        this.parser.skipToken(Tokens.Operators.At);
-        const spaceId = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        const path = this.parser.parseExpression(this.leftBindingPower, Expressions.SpacePath);
         this.parser.skipToken(Tokens.Instructions.Do);
-        const statement =
-          this.parser.parseExpression(30, Expressions.Statement);
-        return new Expressions.Exit(spaceId, statement);
+        const statement = this.parser.parseExpression(30, Expressions.Statement);
+        return new Expressions.Exit(path, statement);
       }
     },
     Enter: class Enter extends Token {
@@ -233,11 +240,10 @@ const Tokens = {
         super(10, 'enter', parser);
       }
       nud() {
-        this.parser.skipToken(Tokens.Operators.At);
-        const spaceId = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        const path = this.parser.parseExpression(this.leftBindingPower, Expressions.SpacePath);
         this.parser.skipToken(Tokens.Instructions.Do);
         const statement = this.parser.parseExpression(30, Expressions.Statement);
-        return new Expressions.Enter(spaceId, statement);
+        return new Expressions.Enter(path, statement);
       }
     },
     Next: class Next extends Token {
@@ -366,7 +372,11 @@ const Tokens = {
     },
     At: class At extends Token {
       constructor(parser) {
-        super(0, '@', parser);
+        super(25, '@', parser);
+      }
+      nud() {
+        const path = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        return new Expressions.SpacePath(path);
       }
     },
     PatternConcatenation: class PatternConcatenation extends Token {
