@@ -58,9 +58,19 @@ class Expression {
 const Expressions = {};
 Expressions.Statement = class Statement extends Expression {};
 Expressions.Instruction = class Instruction extends Expressions.Statement {};
-Expressions.Pattern = class Pattern extends Expression {
-  constructor(value) {
+Expressions.Constraint = class Constraint extends Expression {
+  constructor(name, params) {
     super();
+    this.name = name;
+    this.params = params;
+  }
+  toString() {
+    return `${this.name}:${this.params.join(':')}`;
+  }
+};
+Expressions.Pattern = class Pattern extends Expressions.Constraint {
+  constructor(value) {
+    super('pattern', []);
     this.value = value;
   }
   toString() {
@@ -136,7 +146,7 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     }
   }
   toString() {
-    return this.params.length ? `${this.name}(${this.params.reduce((res, x, i) => (i ? `${res}, ${x}` : x))})` : this.name;
+    return this.params.length ? `${this.name}(${this.params.join(', ')})` : this.name;
   }
 };
 Expressions.Notify = class Notify extends Expressions.Procedure {
@@ -293,7 +303,8 @@ const Tokens = {
         super(90, 'unless', parser);
       }
       nud() {
-        const condition = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        const condition =
+          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
         const statement = this.parser.parseExpression(30, Expressions.statement);
         return new Expressions.Unless(condition, statement);
@@ -304,7 +315,8 @@ const Tokens = {
         super(90, 'until', parser);
       }
       nud() {
-        const condition = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        const condition =
+          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
         const statement = this.parser.parseExpression(30, Expressions.statement);
         return new Expressions.Until(condition, statement);
@@ -315,7 +327,8 @@ const Tokens = {
         super(90, 'when', parser);
       }
       nud() {
-        const condition = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        const condition =
+          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
         const statement = this.parser.parseExpression(30, Expressions.statement);
         return new Expressions.When(condition, statement);
@@ -326,7 +339,8 @@ const Tokens = {
         super(90, 'whenever', parser);
       }
       nud() {
-        const condition = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        const condition =
+          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
         const statement = this.parser.parseExpression(30, Expressions.statement);
         return new Expressions.Whenever(condition, statement);
@@ -351,6 +365,11 @@ const Tokens = {
     },
   },
   Operators: {
+    Colon: class Colon extends Token {
+      constructor(parser) {
+        super(0, ':', parser);
+      }
+    },
     LeftParentheses: class LeftParentheses extends Token {
       constructor(parser) {
         super(0, '(', parser);
@@ -377,6 +396,38 @@ const Tokens = {
       }
       nud() {
         return new Expressions.Pattern(this.symbol);
+      }
+    },
+    MatchMessage: class MatchMessage extends Token {
+      constructor(parser) {
+        super(90, 'msg', parser);
+      }
+      nud() {
+        this.parser.skipToken(Tokens.Operators.Colon);
+        const user = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        this.parser.skipToken(Tokens.Operators.Colon);
+        const content = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        return new Expressions.Constraint('msg', [user, content]);
+      }
+    },
+    MatchMessageContent: class MatchMessageContent extends Token {
+      constructor(parser) {
+        super(90, 'msg-content', parser);
+      }
+      nud() {
+        this.parser.skipToken(Tokens.Operators.Colon);
+        const content = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        return new Expressions.Constraint('msg-content', [content]);
+      }
+    },
+    MatchMessageUser: class MatchMessageUser extends Token {
+      constructor(parser) {
+        super(90, 'msg-user', parser);
+      }
+      nud() {
+        this.parser.skipToken(Tokens.Operators.Colon);
+        const user = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        return new Expressions.Constraint('msg-user', [user]);
       }
     },
     At: class At extends Token {
@@ -581,6 +632,12 @@ class SculpParser {
           case ')': yield new Tokens.Operators.RightParentheses(this); break;
           case ',': yield new Tokens.Operators.ListSeparator(this); break;
           case '||': yield new Tokens.Operators.Parallel(this); break;
+          case ':': yield new Tokens.Operators.Colon(this); break;
+
+          // Constraint Operators
+          case 'msg': yield new Tokens.Operators.MatchMessage(this); break;
+          case 'msg-content': yield new Tokens.Operators.MatchMessageContent(this); break;
+          case 'msg-user': yield new Tokens.Operators.MatchMessageUser(this); break;
 
           // Instructions
           case 'do': yield new Tokens.Instructions.Do(this); break;
@@ -660,7 +717,7 @@ class SculpParser {
     if (!accepted || accepted.some(className => left instanceof className)) {
       return left;
     }
-    const acceptedNames = accepted.map(className => className.name).reduce((res, x, i) => (i ? `${res} or ${x}` : x));
+    const acceptedNames = accepted.map(className => className.name).join(' or ');
     throw new SyntaxError(`Expecting ${acceptedNames} but found ${left.constructor.name}.`);
   }
 
