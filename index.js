@@ -594,6 +594,9 @@ class SculpParser {
     this.tokenStream = this.tokenizeRaw(raw);
     this.nextToken();
     this.result = this.parseExpression();
+    if (!this.isInTemplateMode && !(this.result instanceof Expressions.Statement)) {
+      throw SyntaxError(`Unexpected token ${this.result.constructor.name}, expecting Statement`);
+    }
   }
   /**
    * Tokenize the given [raw] code and return an iterator of tokens
