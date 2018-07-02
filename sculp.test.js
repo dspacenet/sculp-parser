@@ -40,9 +40,19 @@ describe('The SCULP Parser', () => {
     expect(parser.toString()).toBe('enter @ "inbox" do post("New Message!")');
   });
 
+  it('should replace a placeholder with its corresponding insert', () => {
+    const parser = new SculpParser('post($message)', { message: new Expressions.String('Hello World!') });
+    expect(parser.toString()).toBe('post("Hello World!")');
+  });
+
   it('should throw syntax error when the type of the parameter is not the expected', () => {
     expect(() => new SculpParser('post(*)'))
       .toThrow(new SyntaxError('Expecting String but found Pattern.'));
+  });
+
+  it('should throw reference error when a placeholder is set without its corresponding insert', () => {
+    expect(() => new SculpParser('post($message)', { text: new Expressions.String('Hi!') }))
+      .toThrow(new ReferenceError('Insert for placeholder \'message\' not found.'));
   });
 
   describe('when the translation is done', () => {
