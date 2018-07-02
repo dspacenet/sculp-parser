@@ -40,9 +40,14 @@ describe('The SCULP Parser', () => {
     expect(parser.toString()).toBe('enter @ "inbox" do post("New Message!")');
   });
 
+  it('should properly translate "do process until constraint"', () => {
+    const parser = new SculpParser('do post("Bla Bla Bla") until *."stop!".*');
+    expect(parser.toString()).toBe('do post("Bla Bla Bla") until * . "stop!" . *');
+  });
+
   it('should properly translate message constraints', () => {
     const parser = new SculpParser('when msg:"frank":*."?" do post("Hi Frank! I will answer your question asap.")');
-    expect(parser.toString()).toBe('when msg:"frank":* . "?" do post("Hi Frank! I will answer your question asap.")')
+    expect(parser.toString()).toBe('when msg:"frank":* . "?" do post("Hi Frank! I will answer your question asap.")');
   });
 
   it('should properly translate message-content constraint', () => {
