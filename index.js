@@ -149,11 +149,6 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     return this.params.length ? `${this.name}(${this.params.join(', ')})` : this.name;
   }
 };
-Expressions.Notify = class Notify extends Expressions.Procedure {
-  constructor(message) {
-    super('notify', [message]);
-  }
-};
 Expressions.Repeat = class Repeat extends Expressions.Instruction {
   constructor(statement) {
     super();
@@ -521,7 +516,7 @@ const Tokens = {
         this.parser.skipToken(Tokens.Operators.LeftParentheses);
         const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
         this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Notify(message);
+        return new Expressions.Procedure('notify', [message]);
       }
     },
     Post: class Post extends Token {
