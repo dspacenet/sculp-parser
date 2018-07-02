@@ -481,17 +481,6 @@ const Tokens = {
         return new Expressions.Procedure('rm', [user, pid, message]);
       }
     },
-    Say: class Say extends Token {
-      constructor(parser) {
-        super(100, 'say', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('say', [message]);
-      }
-    },
     Signal: class Signal extends Token {
       constructor(parser) {
         super(100, 'signal', parser);
