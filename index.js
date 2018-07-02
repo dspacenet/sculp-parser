@@ -203,7 +203,7 @@ Expressions.Until = class Until extends Expressions.Instruction {
     this.statement = statement;
   }
   toString() {
-    return `until ${this.condition} do ${this.statement}`;
+    return `do ${this.statement} until ${this.condition}`;
   }
 };
 Expressions.Unless = class Unless extends Expressions.Instruction {
@@ -241,6 +241,12 @@ const Tokens = {
     Do: class Do extends Token {
       constructor(parser) {
         super(0, 'do', parser);
+      }
+      nud() {
+        const statement = this.parser.parseExpression(90, Expressions.Statement);
+        this.parser.skipToken(Tokens.Instructions.Until);
+        const condition = this.parser.parseExpression(30, Expressions.Constraint);
+        return new Expressions.Until(condition, statement);
       }
     },
     Exit: class Exit extends Token {
@@ -312,14 +318,7 @@ const Tokens = {
     },
     Until: class Until extends Token {
       constructor(parser) {
-        super(90, 'until', parser);
-      }
-      nud() {
-        const condition =
-          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
-        this.parser.skipToken(Tokens.Instructions.Do);
-        const statement = this.parser.parseExpression(30, Expressions.statement);
-        return new Expressions.Until(condition, statement);
+        super(30, 'until', parser);
       }
     },
     When: class When extends Token {
