@@ -81,6 +81,15 @@ Expressions.Number = class Number extends Expression {
     return `${this.value}`;
   }
 };
+Expressions.Identifier = class Identifier extends Expression {
+  constructor(name) {
+    super();
+    this.name = name;
+  }
+  toString() {
+    return this.name;
+  }
+};
 Expressions.Enter = class Enter extends Expressions.Instruction {
   constructor(spaceId, statement) {
     super();
@@ -401,6 +410,19 @@ const Tokens = {
         throw SyntaxError(`Expecting Statement but found ${left.constructor.name}`);
       }
     },
+    Placeholder: class Placeholder extends Token {
+      constructor(parser) {
+        super(999, '$', parser);
+      }
+      nud() {
+        const identifier =
+          this.parser.parseExpression(this.leftBindingPower, Expressions.Identifier);
+        if (identifier.name in this.parser.inserts) {
+          return this.parser.inserts[[identifier.name]];
+        }
+        throw new ReferenceError(`Insert for placeholder '${identifier.name}' not found.`);
+      }
+    },
   },
   Procedures: {
     Clock: class Clock extends Token {
@@ -504,13 +526,24 @@ const Tokens = {
       }
     },
   },
+  Identifier: class Identifier extends Token {
+    constructor(name, parser) {
+      super(-1, name, parser);
+    }
+    nud() {
+      return new Expressions.Identifier(this.symbol);
+    }
+  },
 };
 
 class SculpParser {
   /**
    * @param {String} raw sculp code
+   * @param {[Expression]=} inserts expressions to insert in placeholders
    */
-  constructor(raw) {
+  constructor(raw, inserts) {
+    this.inserts = inserts;
+    this.isInTemplateMode = this.inserts !== undefined;
     this.tokenStream = this.tokenizeRaw(raw);
     this.nextToken();
     this.result = this.parseExpression();
@@ -533,6 +566,11 @@ class SculpParser {
           stringStart = 0;
           yield new Tokens.Literals.String(string, this);
         }
+      } else if (this.isInTemplateMode && token[1] === '$') {
+        // Meta-Operators
+        yield new Tokens.Operators.Placeholder(this);
+        token = tokenRegex.exec(raw);
+        yield new Tokens.Identifier(token[1], this);
       } else {
         switch (token[1].toLowerCase()) {
           // Operators
