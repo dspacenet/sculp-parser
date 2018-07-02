@@ -15,47 +15,47 @@ function translatePaths(expression) {
 }
 
 describe('The SCULP Parser', () => {
-  it('should properly translate parallel expressions ', () => {
+  it('should properly parse parallel expressions ', () => {
     const parser = new SculpParser('skip || skip || skip');
     expect(parser.toString()).toBe('(skip || skip || skip)');
   });
 
-  it('should properly translate "next process"', () => {
+  it('should properly parse "next process"', () => {
     const parser = new SculpParser('next skip');
     expect(parser.toString()).toBe('skip next skip');
   });
 
-  it('should properly translate "enter @ space do process"', () => {
+  it('should properly parse "enter @ space do process"', () => {
     const parser = new SculpParser('enter @ "clock" do signal("tick")');
     expect(parser.toString()).toBe('enter @ "clock" do signal("tick")');
   });
 
-  it('should properly translate "exit @ space do process"', () => {
+  it('should properly parse "exit @ space do process"', () => {
     const parser = new SculpParser('exit @ "clock" do skip');
     expect(parser.toString()).toBe('exit @ "clock" do skip');
   });
 
-  it('should properly translate "notify(message)"', () => {
+  it('should properly parse "notify(message)"', () => {
     const parser = new SculpParser('notify("New Message!")');
-    expect(parser.toString()).toBe('enter @ "inbox" do post("New Message!")');
+    expect(parser.toString()).toBe('notify("New Message!")');
   });
 
-  it('should properly translate "do process until constraint"', () => {
+  it('should properly parse "do process until constraint"', () => {
     const parser = new SculpParser('do post("Bla Bla Bla") until *."stop!".*');
     expect(parser.toString()).toBe('do post("Bla Bla Bla") until * . "stop!" . *');
   });
 
-  it('should properly translate message constraints', () => {
+  it('should properly parse message constraints', () => {
     const parser = new SculpParser('when msg:"frank":*."?" do post("Hi Frank! I will answer your question asap.")');
     expect(parser.toString()).toBe('when msg:"frank":* . "?" do post("Hi Frank! I will answer your question asap.")');
   });
 
-  it('should properly translate message-content constraint', () => {
+  it('should properly parse message-content constraint', () => {
     const parser = new SculpParser('when msg-content:"Hello" do post("Hi!")');
     expect(parser.toString()).toBe('when msg-content:"Hello" do post("Hi!")');
   });
 
-  it('should properly translate message-user constraint', () => {
+  it('should properly parse message-user constraint', () => {
     const parser = new SculpParser('when msg-user:"frank" do rm(*,"frank",*)');
     expect(parser.toString()).toBe('when msg-user:"frank" do rm(*, "frank", *)');
   });

@@ -127,7 +127,7 @@ Expressions.ParallelExecution = class ParallelExecution extends Expressions.Stat
     this.statements.unshift(left);
   }
   toString() {
-    return `(${this.statements.reduce((res, x, i) => (i ? `${res} || ${x}` : x))})`;
+    return `(${this.statements.join(' || ')})`;
   }
 };
 Expressions.Procedure = class Procedure extends Expressions.Statement {
@@ -152,9 +152,6 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
 Expressions.Notify = class Notify extends Expressions.Procedure {
   constructor(message) {
     super('notify', [message]);
-  }
-  toString() {
-    return `enter @ "inbox" do post(${this.params[0]})`;
   }
 };
 Expressions.Repeat = class Repeat extends Expressions.Instruction {
