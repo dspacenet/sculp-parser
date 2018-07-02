@@ -40,6 +40,21 @@ describe('The SCULP Parser', () => {
     expect(parser.toString()).toBe('enter @ "inbox" do post("New Message!")');
   });
 
+  it('should properly translate message constraints', () => {
+    const parser = new SculpParser('when msg:"frank":*."?" do post("Hi Frank! I will answer your question asap.")');
+    expect(parser.toString()).toBe('when msg:"frank":* . "?" do post("Hi Frank! I will answer your question asap.")')
+  });
+
+  it('should properly translate message-content constraint', () => {
+    const parser = new SculpParser('when msg-content:"Hello" do post("Hi!")');
+    expect(parser.toString()).toBe('when msg-content:"Hello" do post("Hi!")');
+  });
+
+  it('should properly translate message-user constraint', () => {
+    const parser = new SculpParser('when msg-user:"frank" do rm(*,"frank",*)');
+    expect(parser.toString()).toBe('when msg-user:"frank" do rm(*, "frank", *)');
+  });
+
   it('should replace a placeholder with its corresponding insert', () => {
     const parser = new SculpParser('post($message)', { message: new Expressions.String('Hello World!') });
     expect(parser.toString()).toBe('post("Hello World!")');
