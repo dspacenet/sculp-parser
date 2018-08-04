@@ -53,19 +53,31 @@ class Expression {
     });
     return expression;
   }
+
+  /**
+   * Apply [fn] to all expression of the given [classes]
+   * @param {Function|[Function]} classes
+   * @param {function(Expression)} fn
+   */
+  applyTo(classes, fn) {
+    classes = classes[0] ? classes : [classes]; // eslint-disable-line no-param-reassign
+    this.traverse((expression) => {
+      if (classes.some(className => expression instanceof className)) fn(expression);
+    });
+  }
 }
 
 const Expressions = {};
 Expressions.Statement = class Statement extends Expression {};
 Expressions.Instruction = class Instruction extends Expressions.Statement {};
 Expressions.Constraint = class Constraint extends Expression {
-  constructor(name, params) {
+  constructor(name, pattern) {
     super();
     this.name = name;
-    this.params = params;
+    this.pattern = pattern;
   }
   toString() {
-    return `${this.name}:${this.params.join(':')}`;
+    return `${this.name}: ${this.pattern}`;
   }
 };
 Expressions.Pattern = class Pattern extends Expressions.Constraint {
@@ -89,15 +101,6 @@ Expressions.Number = class Number extends Expression {
   }
   toString() {
     return `${this.value}`;
-  }
-};
-Expressions.Identifier = class Identifier extends Expression {
-  constructor(name) {
-    super();
-    this.name = name;
-  }
-  toString() {
-    return this.name;
   }
 };
 Expressions.Enter = class Enter extends Expressions.Instruction {
@@ -130,6 +133,32 @@ Expressions.ParallelExecution = class ParallelExecution extends Expressions.Stat
     return `(${this.statements.join(' || ')})`;
   }
 };
+Expressions.LogicalAnd = class LogicalAnd extends Expressions.Constraint {
+  constructor(left, right) {
+    super();
+    this.constraints = right instanceof Expressions.LogicalAnd ? right.constraints : [right];
+    this.constraints.unshift(left);
+  }
+  toString() {
+    return `(${this.constraints.join(' ^ ')})`;
+  }
+};
+Expressions.LogicalOr = class LogicalOr extends Expressions.Constraint {
+  constructor(left, right) {
+    super();
+    this.constraints = right instanceof Expressions.LogicalOr ? right.constraints : [right];
+    this.constraints.unshift(left);
+  }
+  toString() {
+    return `${this.constraints.join(' v ')}`;
+  }
+};
+Expressions.ParametersList = class ParametersList extends Expression {
+  constructor(list) {
+    super();
+    this.list = list;
+  }
+};
 Expressions.Procedure = class Procedure extends Expressions.Statement {
   constructor(name, params) {
     super();
@@ -146,7 +175,15 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     }
   }
   toString() {
-    return this.params.length ? `${this.name}(${this.params.join(', ')})` : this.name;
+    return this.params.list.length ? `${this.name}(${this.params.list.join(', ')})` : this.name;
+  }
+};
+Expressions.Identifier = class Identifier extends Expressions.Procedure {
+  constructor(name) {
+    super(name, []);
+  }
+  toString() {
+    return this.name;
   }
 };
 Expressions.Repeat = class Repeat extends Expressions.Instruction {
@@ -235,9 +272,9 @@ const Tokens = {
         super(0, 'do', parser);
       }
       nud() {
-        const statement = this.parser.parseExpression(90, Expressions.Statement);
+        const statement = this.parser.parseNextExpression(30, Expressions.Statement);
         this.parser.skipToken(Tokens.Instructions.Until);
-        const condition = this.parser.parseExpression(30, Expressions.Constraint);
+        const condition = this.parser.parseNextExpression(30, Expressions.Constraint);
         return new Expressions.Until(condition, statement);
       }
     },
@@ -246,9 +283,9 @@ const Tokens = {
         super(10, 'exit', parser);
       }
       nud() {
-        const path = this.parser.parseExpression(this.leftBindingPower, Expressions.SpacePath);
+        const path = this.parser.parseNextExpression(this.leftBindingPower, Expressions.SpacePath);
         this.parser.skipToken(Tokens.Instructions.Do);
-        const statement = this.parser.parseExpression(30, Expressions.Statement);
+        const statement = this.parser.parseNextExpression(30, Expressions.Statement);
         return new Expressions.Exit(path, statement);
       }
     },
@@ -257,9 +294,9 @@ const Tokens = {
         super(10, 'enter', parser);
       }
       nud() {
-        const path = this.parser.parseExpression(this.leftBindingPower, Expressions.SpacePath);
+        const path = this.parser.parseNextExpression(this.leftBindingPower, Expressions.SpacePath);
         this.parser.skipToken(Tokens.Instructions.Do);
-        const statement = this.parser.parseExpression(30, Expressions.Statement);
+        const statement = this.parser.parseNextExpression(30, Expressions.Statement);
         return new Expressions.Enter(path, statement);
       }
     },
@@ -268,11 +305,12 @@ const Tokens = {
         super(15, 'next', parser);
       }
       nud() {
-        const statement = this.parser.parseExpression(this.leftBindingPower, Expression.Statement);
+        const statement =
+          this.parser.parseNextExpression(this.leftBindingPower, Expression.Statement);
         return new Expressions.SequentialExecution(new Expressions.Skip(), statement);
       }
       led(left) {
-        const right = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
+        const right = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Statement);
         if (left instanceof Expressions.Statement) {
           return new Expressions.SequentialExecution(left, right);
         }
@@ -284,7 +322,8 @@ const Tokens = {
         super(10, 'repeat', parser);
       }
       nud() {
-        const statement = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
+        const statement =
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Statement);
         return new Expressions.Repeat(statement);
       }
     },
@@ -302,15 +341,15 @@ const Tokens = {
       }
       nud() {
         const condition =
-          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
-        const statement = this.parser.parseExpression(30, Expressions.statement);
+        const statement = this.parser.parseNextExpression(30, Expressions.statement);
         return new Expressions.Unless(condition, statement);
       }
     },
     Until: class Until extends Token {
       constructor(parser) {
-        super(30, 'until', parser);
+        super(20, 'until', parser);
       }
     },
     When: class When extends Token {
@@ -319,9 +358,9 @@ const Tokens = {
       }
       nud() {
         const condition =
-          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
-        const statement = this.parser.parseExpression(30, Expressions.statement);
+        const statement = this.parser.parseNextExpression(30, Expressions.statement);
         return new Expressions.When(condition, statement);
       }
     },
@@ -331,9 +370,9 @@ const Tokens = {
       }
       nud() {
         const condition =
-          this.parser.parseExpression(this.leftBindingPower, Expressions.Constraint);
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
         this.parser.skipToken(Tokens.Instructions.Do);
-        const statement = this.parser.parseExpression(30, Expressions.statement);
+        const statement = this.parser.parseNextExpression(30, Expressions.statement);
         return new Expressions.Whenever(condition, statement);
       }
     },
@@ -341,7 +380,7 @@ const Tokens = {
   Literals: {
     String: class String extends Token {
       constructor(value, parser) {
-        super(0, 'string', parser);
+        super(10, 'string', parser);
         this.value = value;
       }
       nud() {
@@ -363,17 +402,46 @@ const Tokens = {
     },
     LeftParentheses: class LeftParentheses extends Token {
       constructor(parser) {
-        super(0, '(', parser);
+        super(40, '(', parser);
       }
       nud() {
-        const expression = this.parser.parseExpression(10);
+        const expression = this.parser.parseNextExpression(10);
         this.parser.skipToken(Tokens.Operators.RightParentheses);
         return expression;
+      }
+      led(left) {
+        if (!(left instanceof Expressions.Identifier) ||
+          !(left.name in this.parser.validSignatures)
+        ) {
+          throw new SyntaxError(`Unexpected ${left}, expecting Identifier`);
+        }
+        let params = this.parser.parseNextExpression(10);
+        this.parser.skipToken(Tokens.Operators.RightParentheses);
+        if (!(params instanceof Expressions.ParametersList)) {
+          params = new Expressions.ParametersList([params]);
+        }
+        if (params.list.length !== this.parser.validSignatures[left.name].length) {
+          throw new SyntaxError(`Procedure ${left.name} requires ${this.parser.validSignatures[left.name].length} parameters instead of ${params.list.length}.`);
+        }
+        this.parser.validSignatures[left.name].forEach((className, i) => {
+          if (!(params.list[i] instanceof className)) {
+            throw TypeError(`Parameter at position ${i} of ${left.name} must be of type ${className.name} instead of ${params.list[i].constructor.name}.`);
+          }
+        });
+        return new Expressions.Procedure(left.name, params);
       }
     },
     ListSeparator: class ListSeparator extends Token {
       constructor(parser) {
-        super(0, ',', parser);
+        super(100, ',', parser);
+      }
+      led(left) {
+        const right = this.parser.parseNextExpression(10);
+        if (right instanceof Expressions.ParametersList) {
+          right.list.unshift(left);
+          return right;
+        }
+        return new Expressions.ParametersList([left, right]);
       }
     },
     RightParentheses: class RightParentheses extends Token {
@@ -391,34 +459,32 @@ const Tokens = {
     },
     MatchMessage: class MatchMessage extends Token {
       constructor(parser) {
-        super(90, 'msg', parser);
+        super(110, 'msg', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
-        const user = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        this.parser.skipToken(Tokens.Operators.Colon);
-        const content = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('msg', [user, content]);
+        const content = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
+        return new Expressions.Constraint('msg', content);
       }
     },
-    MatchMessageContent: class MatchMessageContent extends Token {
+    MatchPID: class MatchPID extends Token {
       constructor(parser) {
-        super(90, 'msg-content', parser);
+        super(110, 'content', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
-        const content = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('msg-content', [content]);
+        const content = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
+        return new Expressions.Constraint('msg-content', content);
       }
     },
-    MatchMessageUser: class MatchMessageUser extends Token {
+    MatchUser: class MatchUser extends Token {
       constructor(parser) {
-        super(90, 'msg-user', parser);
+        super(110, 'user', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
-        const user = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('msg-user', [user]);
+        const user = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
+        return new Expressions.Constraint('user', user);
       }
     },
     At: class At extends Token {
@@ -426,16 +492,16 @@ const Tokens = {
         super(25, '@', parser);
       }
       nud() {
-        const path = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
+        const path = this.parser.parseNextExpression(this.leftBindingPower, Expressions.String);
         return new Expressions.SpacePath(path);
       }
     },
     PatternConcatenation: class PatternConcatenation extends Token {
       constructor(parser) {
-        super(100, '.', parser);
+        super(120, '.', parser);
       }
       led(left) {
-        const right = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
+        const right = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
         if (left instanceof Expressions.Pattern) return new Expressions.Pattern(`${left} . ${right}`);
         throw SyntaxError(`Expecting String or Pattern but found ${left.constructor.name}`);
       }
@@ -445,7 +511,7 @@ const Tokens = {
         super(20, '||', parser);
       }
       led(left) {
-        const right = this.parser.parseExpression(this.leftBindingPower, Expressions.Statement);
+        const right = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Statement);
         if (left instanceof Expressions.Statement) {
           return new Expressions.ParallelExecution(left, right);
         }
@@ -458,119 +524,43 @@ const Tokens = {
       }
       nud() {
         const identifier =
-          this.parser.parseExpression(this.leftBindingPower, Expressions.Identifier);
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Identifier);
         if (identifier.name in this.parser.inserts) {
           return this.parser.inserts[[identifier.name]];
         }
         throw new ReferenceError(`Insert for placeholder '${identifier.name}' not found.`);
       }
     },
-  },
-  Procedures: {
-    Clock: class Clock extends Token {
+    LogicalAnd: class LogicalAnd extends Token {
       constructor(parser) {
-        super(100, 'clock', parser);
+        super(100, '^', parser);
       }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const crontab = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('clock', [crontab]);
+      led(left) {
+        const right =
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
+        if (left instanceof Expressions.Constraint) {
+          return new Expressions.LogicalAnd(left, right);
+        }
+        throw SyntaxError(`Expecting Constraint but found ${left.constructor.name}`);
       }
     },
-    CreatePoll: class CreatePoll extends Token {
+    LogicalOr: class LogicalOr extends Token {
       constructor(parser) {
-        super(100, 'create-poll', parser);
+        super(95, 'v', parser);
       }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const title = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('create-poll', [title]);
-      }
-    },
-    ClosePoll: class ClosePoll extends Token {
-      constructor(parser) {
-        super(100, 'close-poll', parser);
-      }
-      nud() {
-        return new Expressions.Procedure(this.symbol);
-      }
-    },
-    Kill: class Kill extends Token {
-      constructor(parser) {
-        super(100, 'kill', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const pid = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('kill', [pid]);
-      }
-    },
-    Notify: class Notify extends Token {
-      constructor(parser) {
-        super(100, 'notify', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('notify', [message]);
-      }
-    },
-    Post: class Post extends Token {
-      constructor(parser) {
-        super(100, 'post', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('post', [message]);
-      }
-    },
-    Remove: class Remove extends Token {
-      constructor(parser) {
-        super(100, 'remove', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const user = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        this.parser.skipToken(Tokens.Operators.ListSeparator);
-        const pid = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        this.parser.skipToken(Tokens.Operators.ListSeparator);
-        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.Pattern);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('rm', [user, pid, message]);
-      }
-    },
-    Signal: class Signal extends Token {
-      constructor(parser) {
-        super(100, 'signal', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const message = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('signal', [message]);
-      }
-    },
-    Vote: class Vote extends Token {
-      constructor(parser) {
-        super(100, 'vote', parser);
-      }
-      nud() {
-        this.parser.skipToken(Tokens.Operators.LeftParentheses);
-        const choice = this.parser.parseExpression(this.leftBindingPower, Expressions.String);
-        this.parser.skipToken(Tokens.Operators.RightParentheses);
-        return new Expressions.Procedure('vote', [choice]);
+      led(left) {
+        const right =
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
+        if (left instanceof Expressions.Constraint) {
+          return new Expressions.LogicalOr(left, right);
+        }
+        throw SyntaxError(`Expecting Constraint but found ${left.constructor.name}`);
       }
     },
   },
   Identifier: class Identifier extends Token {
     constructor(name, parser) {
-      super(-1, name, parser);
+      super(0, name, parser);
     }
     nud() {
       return new Expressions.Identifier(this.symbol);
@@ -579,19 +569,23 @@ const Tokens = {
 };
 
 class SculpParser {
+  constructor(validSignatures) {
+    this.validSignatures = validSignatures;
+  }
   /**
    * @param {String} raw sculp code
    * @param {[Expression]=} inserts expressions to insert in placeholders
    */
-  constructor(raw, inserts) {
+  parse(raw, inserts) {
     this.inserts = inserts;
     this.isInTemplateMode = this.inserts !== undefined;
     this.tokenStream = this.tokenizeRaw(raw);
     this.nextToken();
-    this.result = this.parseExpression();
-    if (!this.isInTemplateMode && !(this.result instanceof Expressions.Statement)) {
+    const result = this.parseNextExpression();
+    if (!this.isInTemplateMode && !(result instanceof Expressions.Statement)) {
       throw SyntaxError(`Unexpected token ${this.result.constructor.name}, expecting Statement`);
     }
+    return result;
   }
   /**
    * Tokenize the given [raw] code and return an iterator of tokens
@@ -627,11 +621,13 @@ class SculpParser {
           case ',': yield new Tokens.Operators.ListSeparator(this); break;
           case '||': yield new Tokens.Operators.Parallel(this); break;
           case ':': yield new Tokens.Operators.Colon(this); break;
+          case '^': yield new Tokens.Operators.LogicalAnd(this); break;
+          case 'v': yield new Tokens.Operators.LogicalOr(this); break;
 
-          // Constraint Operators
+          // Constraints
           case 'msg': yield new Tokens.Operators.MatchMessage(this); break;
-          case 'msg-content': yield new Tokens.Operators.MatchMessageContent(this); break;
-          case 'msg-user': yield new Tokens.Operators.MatchMessageUser(this); break;
+          case 'pid': yield new Tokens.Operators.MatchPID(this); break;
+          case 'user': yield new Tokens.Operators.MatchUser(this); break;
 
           // Instructions
           case 'do': yield new Tokens.Instructions.Do(this); break;
@@ -645,21 +641,10 @@ class SculpParser {
           case 'whenever': yield new Tokens.Instructions.Whenever(this); break;
           case 'next': yield new Tokens.Instructions.Next(this); break;
 
-          // Procedures
-          case 'clock': yield new Tokens.Procedures.Clock(this); break;
-          case 'close-poll': yield new Tokens.Procedures.ClosePoll(this); break;
-          case 'create-poll': yield new Tokens.Procedures.CreatePoll(this); break;
-          case 'kill': yield new Tokens.Procedures.Kill(this); break;
-          case 'notify': yield new Tokens.Procedures.Notify(this); break;
-          case 'post': yield new Tokens.Procedures.Post(this); break;
-          case 'rm': yield new Tokens.Procedures.Remove(this); break;
-          case 'signal': yield new Tokens.Procedures.Signal(this); break;
-          case 'say': yield new Tokens.Procedures.Say(this); break;
-          case 'vote': yield new Tokens.Procedures.Vote(this); break;
-
           // Literals
           case '"': stringStart = tokenRegex.lastIndex; break;
-          default: throw new SyntaxError(`Unexpected token ${token[1]}`);
+          default:
+            yield new Tokens.Identifier(token[1], this);
         }
       }
       token = tokenRegex.exec(raw);
@@ -697,7 +682,7 @@ class SculpParser {
    * @param {Function|[Function]=} accepted
    * @returns {Expressions.Statement}
    */
-  parseExpression(rightBindingPower = 0, accepted) {
+  parseNextExpression(rightBindingPower = 0, accepted) {
     accepted = // eslint-disable-line no-param-reassign
       !accepted || accepted[0] ? accepted : [accepted];
     let currentToken = this.token;
@@ -713,43 +698,6 @@ class SculpParser {
     }
     const acceptedNames = accepted.map(className => className.name).join(' or ');
     throw new SyntaxError(`Expecting ${acceptedNames} but found ${left.constructor.name}.`);
-  }
-
-  /**
-   * Apply [fn] to all expression of the given [classes]
-   * @param {Function|[Function]} classes
-   * @param {function(Expression)} fn
-   */
-  applyTo(classes, fn) {
-    classes = classes[0] ? classes : [classes]; // eslint-disable-line no-param-reassign
-    this.result.traverse((expression) => {
-      if (classes.some(className => expression instanceof className)) fn(expression);
-    });
-  }
-  toString() {
-    return this.result.toString();
-  }
-  /**
-   * Calls the function **fn** over all nodes of the abstract syntax tree, using
-   * the current expression and the given **context** as parameter, then
-   * traverse is called recursively over the children expressions, using **fn**
-   * and the context returned from previous **fn** call as parameter,
-   *
-   * If **fn** returns false, the propagation is stopped.
-   * @param {function(Expression, Object): Object} fn
-   * @param {Object} contexts
-   */
-  traverse(fn) {
-    return this.result.traverse(fn);
-  }
-  /**
-   * Calls the function **fn** over all nodes of the abstract syntax tree, using
-   * the current expression as parameter, then the expression returned by **fn**
-   * is used to replace the current expression
-   * @param {function(Expression)} fn
-   */
-  patch(fn) {
-    this.result = this.result.patch(fn);
   }
 }
 
