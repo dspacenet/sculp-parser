@@ -167,9 +167,9 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
   }
   pushParam(param) {
     if (typeof param === 'string') {
-      this.params.push(new Expressions.String(param));
+      this.params.list.push(new Expressions.String(param));
     } else if (param instanceof Expression) {
-      this.params.push(param);
+      this.params.list.push(param);
     } else {
       throw new TypeError(`param type ${param.constructor.className} is not String or Expression`);
     }
