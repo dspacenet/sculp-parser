@@ -55,8 +55,8 @@ describe('The SCULP Parser', () => {
   });
 
   it('should properly parse message constraints', () => {
-    const result = parser.parse('when user:"frank" ^ msg:*."?" do post("Hi Frank! I will answer your question asap.")');
-    expect(result.toString()).toBe('when (user: "frank" ^ msg: * . "?") do post("Hi Frank! I will answer your question asap.")');
+    const result = parser.parse('when usr:"frank" ^ msg:*."?" do post("Hi Frank! I will answer your question asap.")');
+    expect(result.toString()).toBe('when (usr: "frank" ^ msg: * . "?") do post("Hi Frank! I will answer your question asap.")');
   });
 
   it('should replace a placeholder with its corresponding insert', () => {
@@ -72,6 +72,11 @@ describe('The SCULP Parser', () => {
   it('should throw reference error when a placeholder is set without its corresponding insert', () => {
     expect(() => parser.parse('post($message)', { text: new Expressions.String('Hi!') }))
       .toThrow(new ReferenceError('Insert for placeholder \'message\' not found.'));
+  });
+
+  it('should throw syntax error when a token is not recognized', () => {
+    expect(() => parser.parse('test'))
+      .toThrow(new SyntaxError('Unknown token \'test\'.'));
   });
 
   describe('when the translation is done', () => {

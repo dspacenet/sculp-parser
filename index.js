@@ -571,13 +571,14 @@ const Tokens = {
 class SculpParser {
   constructor(validSignatures) {
     this.validSignatures = validSignatures;
+    this.inserts = [];
   }
   /**
    * @param {String} raw sculp code
    * @param {[Expression]=} inserts expressions to insert in placeholders
    */
   parse(raw, inserts) {
-    this.inserts = inserts;
+    this.inserts = inserts || [];
     this.isInTemplateMode = this.inserts !== undefined;
     this.tokenStream = this.tokenizeRaw(raw);
     this.nextToken();
@@ -644,6 +645,9 @@ class SculpParser {
           // Literals
           case '"': stringStart = tokenRegex.lastIndex; break;
           default:
+            if (!(token[1] in this.validSignatures)) {
+              throw new SyntaxError(`Unknown token '${token[1]}'.`);
+            }
             yield new Tokens.Identifier(token[1], this);
         }
       }
