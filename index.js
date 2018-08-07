@@ -484,7 +484,7 @@ const Tokens = {
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
         const user = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('user', user);
+        return new Expressions.Constraint('usr', user);
       }
     },
     At: class At extends Token {
@@ -627,7 +627,7 @@ class SculpParser {
           // Constraints
           case 'msg': yield new Tokens.Operators.MatchMessage(this); break;
           case 'pid': yield new Tokens.Operators.MatchPID(this); break;
-          case 'user': yield new Tokens.Operators.MatchUser(this); break;
+          case 'usr': yield new Tokens.Operators.MatchUser(this); break;
 
           // Instructions
           case 'do': yield new Tokens.Instructions.Do(this); break;
