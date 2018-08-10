@@ -31,7 +31,7 @@ describe('The SCULP Parser', () => {
 
   it('should properly parse "next process"', () => {
     const result = parser.parse('next skip');
-    expect(result.toString()).toBe('skip next skip');
+    expect(result.toString()).toBe('next skip');
   });
 
   it('should properly parse "notify(message)"', () => {

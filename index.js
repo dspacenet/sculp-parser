@@ -196,13 +196,12 @@ Expressions.Repeat = class Repeat extends Expressions.Instruction {
   }
 };
 Expressions.SequentialExecution = class SequentialExecution extends Expressions.Statement {
-  constructor(left, right) {
+  constructor(statement) {
     super();
-    this.statements = left instanceof Expressions.SequentialExecution ? left.statements : [left];
-    this.statements.push(right);
+    this.statement = statement;
   }
   toString() {
-    return `${this.statements.reduce((res, x, i) => (i ? `${res} next ${x}` : x))}`;
+    return `next ${this.statement}`;
   }
 };
 Expressions.When = class When extends Expressions.Instruction {
@@ -307,14 +306,7 @@ const Tokens = {
       nud() {
         const statement =
           this.parser.parseNextExpression(this.leftBindingPower, Expression.Statement);
-        return new Expressions.SequentialExecution(new Expressions.Skip(), statement);
-      }
-      led(left) {
-        const right = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Statement);
-        if (left instanceof Expressions.Statement) {
-          return new Expressions.SequentialExecution(left, right);
-        }
-        throw SyntaxError(`Expecting Statement but found ${left.constructor.name}`);
+        return new Expressions.SequentialExecution(statement);
       }
     },
     Repeat: class Repeat extends Token {
