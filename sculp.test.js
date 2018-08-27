@@ -55,8 +55,8 @@ describe('The SCULP Parser', () => {
   });
 
   it('should properly parse message constraints', () => {
-    const result = parser.parse('when usr:"frank" ^ msg:*."?" do post("Hi Frank! I will answer your question asap.")');
-    expect(result.toString()).toBe('when (usr: "frank" ^ msg: * . "?") do post("Hi Frank! I will answer your question asap.")');
+    const result = parser.parse('when {usr:"frank", body:*."?"} do post("Hi Frank! I will answer your question asap.")');
+    expect(result.toString()).toBe('when { usr: "frank", body: * . "?" } do post("Hi Frank! I will answer your question asap.")');
   });
 
   it('should replace a placeholder with its corresponding insert', () => {

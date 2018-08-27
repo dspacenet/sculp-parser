@@ -70,16 +70,7 @@ class Expression {
 const Expressions = {};
 Expressions.Statement = class Statement extends Expression {};
 Expressions.Instruction = class Instruction extends Expressions.Statement {};
-Expressions.Constraint = class Constraint extends Expression {
-  constructor(name, pattern) {
-    super();
-    this.name = name;
-    this.pattern = pattern;
-  }
-  toString() {
-    return `${this.name}: ${this.pattern}`;
-  }
-};
+Expressions.Constraint = class Constraint extends Expression {};
 Expressions.Pattern = class Pattern extends Expressions.Constraint {
   constructor(value) {
     super('pattern', []);
@@ -153,6 +144,28 @@ Expressions.LogicalOr = class LogicalOr extends Expressions.Constraint {
     return `${this.constraints.join(' v ')}`;
   }
 };
+Expressions.Match = class Match extends Expression {
+  constructor(name, pattern) {
+    super();
+    this.name = name;
+    this.pattern = pattern;
+  }
+  toString() {
+    return `${this.name}: ${this.pattern}`;
+  }
+};
+Expressions.MatchList = class MatchList extends Expressions.Constraint {
+  constructor(item1, item2) {
+    super();
+    this.list = {};
+    this.list[item1.name] = item1;
+    if (item2) this.list[item2.name] = item2;
+  }
+  toString() {
+    return `{ ${Object.values(this.list).join(', ')} }`;
+  }
+};
+
 Expressions.ParametersList = class ParametersList extends Expression {
   constructor(list) {
     super();
@@ -178,9 +191,10 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
     return this.params.list.length ? `${this.name}(${this.params.list.join(', ')})` : this.name;
   }
 };
-Expressions.Identifier = class Identifier extends Expressions.Procedure {
+Expressions.Identifier = class Identifier extends Expression {
   constructor(name) {
-    super(name, []);
+    super();
+    this.name = name;
   }
   toString() {
     return this.name;
@@ -423,6 +437,19 @@ const Tokens = {
         return new Expressions.Procedure(left.name, params);
       }
     },
+    LeftBracket: class LeftBracket extends Token {
+      constructor(parser) {
+        super(90, '{', parser);
+      }
+      nud() {
+        const list = this.parser.parseNextExpression(
+          this.leftBindingPower,
+          [Expressions.MatchList, Expressions.Match],
+        );
+        this.parser.skipToken(Tokens.Operators.RightBracket);
+        return list instanceof Expressions.MatchList ? list : new Expressions.MatchList(list);
+      }
+    },
     ListSeparator: class ListSeparator extends Token {
       constructor(parser) {
         super(100, ',', parser);
@@ -432,8 +459,18 @@ const Tokens = {
         if (right instanceof Expressions.ParametersList) {
           right.list.unshift(left);
           return right;
+        } else if (right instanceof Expressions.MatchList) {
+          right.list[left.name] = left;
+          return right;
+        } else if (right instanceof Expressions.Match) {
+          return new Expressions.MatchList(left, right);
         }
         return new Expressions.ParametersList([left, right]);
+      }
+    },
+    RightBracket: class RightBracket extends Token {
+      constructor(parser) {
+        super(0, '}', parser);
       }
     },
     RightParentheses: class RightParentheses extends Token {
@@ -449,24 +486,24 @@ const Tokens = {
         return new Expressions.Pattern(this.symbol);
       }
     },
-    MatchMessage: class MatchMessage extends Token {
+    MatchBody: class MatchMessage extends Token {
       constructor(parser) {
-        super(110, 'msg', parser);
+        super(110, 'body', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
         const content = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('msg', content);
+        return new Expressions.Match('body', content);
       }
     },
     MatchPID: class MatchPID extends Token {
       constructor(parser) {
-        super(110, 'content', parser);
+        super(110, 'pid', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
         const content = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('msg-content', content);
+        return new Expressions.Match('pid', content);
       }
     },
     MatchUser: class MatchUser extends Token {
@@ -476,7 +513,7 @@ const Tokens = {
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
         const user = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Constraint('usr', user);
+        return new Expressions.Match('usr', user);
       }
     },
     At: class At extends Token {
@@ -616,9 +653,11 @@ class SculpParser {
           case ':': yield new Tokens.Operators.Colon(this); break;
           case '^': yield new Tokens.Operators.LogicalAnd(this); break;
           case 'v': yield new Tokens.Operators.LogicalOr(this); break;
+          case '{': yield new Tokens.Operators.LeftBracket(this); break;
+          case '}': yield new Tokens.Operators.RightBracket(this); break;
 
           // Constraints
-          case 'msg': yield new Tokens.Operators.MatchMessage(this); break;
+          case 'body': yield new Tokens.Operators.MatchBody(this); break;
           case 'pid': yield new Tokens.Operators.MatchPID(this); break;
           case 'usr': yield new Tokens.Operators.MatchUser(this); break;
 
