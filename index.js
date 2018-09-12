@@ -592,6 +592,9 @@ const Tokens = {
       super(0, name, parser);
     }
     nud() {
+      if (this.parser.validSignatures[this.symbol].length === 0) {
+        return new Expressions.Procedure(this.symbol, []);
+      }
       return new Expressions.Identifier(this.symbol);
     }
   },
