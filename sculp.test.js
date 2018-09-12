@@ -19,6 +19,7 @@ const validSignatures = {
   signal: [Expressions.String],
   post: [Expressions.String],
   rm: [Expressions.Pattern, Expressions.Pattern, Expressions.Pattern],
+  abort: [],
 };
 
 describe('The SCULP Parser', () => {
@@ -37,6 +38,11 @@ describe('The SCULP Parser', () => {
   it('should properly parse "notify(message)"', () => {
     const result = parser.parse('notify("New Message!")');
     expect(result.toString()).toBe('notify("New Message!")');
+  });
+
+  it('should properly parse "abort"', () => {
+    const result = parser.parse('abort');
+    expect(result.toString()).toBe('abort');
   });
 
   it('should properly parse "enter @ space do process"', () => {

@@ -176,7 +176,7 @@ Expressions.Procedure = class Procedure extends Expressions.Statement {
   constructor(name, params) {
     super();
     this.name = name;
-    this.params = params || [];
+    this.params = params || new Expressions.ParametersList([]);
   }
   pushParam(param) {
     if (typeof param === 'string') {
@@ -592,8 +592,10 @@ const Tokens = {
       super(0, name, parser);
     }
     nud() {
-      if (this.parser.validSignatures[this.symbol].length === 0) {
-        return new Expressions.Procedure(this.symbol, []);
+      if (this.parser.validSignatures[this.symbol] &&
+          this.parser.validSignatures[this.symbol].length === 0
+      ) {
+        return new Expressions.Procedure(this.symbol);
       }
       return new Expressions.Identifier(this.symbol);
     }
