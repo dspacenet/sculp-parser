@@ -60,6 +60,26 @@ describe('The SCULP Parser', () => {
     expect(result.toString()).toBe('do post("Bla Bla Bla") until * . "stop!" . *');
   });
 
+  it('should properly parse "if condition then process"', () => {
+    const result = parser.parse('if * then post("pass")');
+    expect(result.toString()).toBe('if * then post("pass")');
+  });
+
+  it('should properly parse "unless condition next process"', () => {
+    const result = parser.parse('unless * next post("next")');
+    expect(result.toString()).toBe('unless * next post("next")');
+  });
+
+  it('should properly parse "while condition do process"', () => {
+    const result = parser.parse('while * do post("is running")');
+    expect(result.toString()).toBe('while * do post("is running")');
+  });
+
+  it('should properly parse "def name as process"', () => {
+    const result = parser.parse('def "clear" as rm(*,*,*)');
+    expect(result.toString()).toBe('def "clear" as rm(*, *, *)');
+  });
+
   it('should properly parse message constraints', () => {
     const result = parser.parse('when {usr:"frank", body:*."?"} do post("Hi Frank! I will answer your question asap.")');
     expect(result.toString()).toBe('when { usr: "frank", body: * . "?" } do post("Hi Frank! I will answer your question asap.")');

@@ -114,6 +114,16 @@ Expressions.Exit = class Exit extends Expressions.Instruction {
     return `exit ${this.spaceId} do ${this.statement}`;
   }
 };
+Expressions.Define = class Define extends Expressions.Instruction {
+  constructor(name, statement) {
+    super();
+    this.name = name;
+    this.statement = statement;
+  }
+  toString() {
+    return `def ${this.name} as ${this.statement}`;
+  }
+};
 Expressions.ParallelExecution = class ParallelExecution extends Expressions.Statement {
   constructor(left, right) {
     super();
@@ -131,7 +141,7 @@ Expressions.LogicalAnd = class LogicalAnd extends Expressions.Constraint {
     this.constraints.unshift(left);
   }
   toString() {
-    return `(${this.constraints.join(' ^ ')})`;
+    return `(${this.constraints.join(' & ')})`;
   }
 };
 Expressions.LogicalOr = class LogicalOr extends Expressions.Constraint {
@@ -200,6 +210,16 @@ Expressions.Identifier = class Identifier extends Expression {
     return this.name;
   }
 };
+Expressions.If = class If extends Expressions.Instruction {
+  constructor(condition, statement) {
+    super();
+    this.condition = condition;
+    this.statement = statement;
+  }
+  toString() {
+    return `if ${this.condition} then ${this.statement}`;
+  }
+};
 Expressions.Repeat = class Repeat extends Expressions.Instruction {
   constructor(statement) {
     super();
@@ -238,6 +258,16 @@ Expressions.Whenever = class Whenever extends Expressions.Instruction {
     return `whenever ${this.condition} do ${this.statement}`;
   }
 };
+Expressions.While = class While extends Expressions.Instruction {
+  constructor(condition, statement) {
+    super();
+    this.condition = condition;
+    this.statement = statement;
+  }
+  toString() {
+    return `while ${this.condition} do ${this.statement}`;
+  }
+};
 Expressions.Until = class Until extends Expressions.Instruction {
   constructor(condition, statement) {
     super();
@@ -255,7 +285,7 @@ Expressions.Unless = class Unless extends Expressions.Instruction {
     this.statement = statement;
   }
   toString() {
-    return `unless ${this.condition} do ${this.statement}`;
+    return `unless ${this.condition} next ${this.statement}`;
   }
 };
 Expressions.Skip = class Skip extends Expressions.Instruction {
@@ -280,6 +310,11 @@ const Tokens = {
     }
   },
   Instructions: {
+    As: class As extends Token {
+      constructor(parser) {
+        super(10, 'as', parser);
+      }
+    },
     Do: class Do extends Token {
       constructor(parser) {
         super(0, 'do', parser);
@@ -313,6 +348,29 @@ const Tokens = {
         return new Expressions.Enter(path, statement);
       }
     },
+    Define: class Define extends Token {
+      constructor(parser) {
+        super(90, 'def', parser);
+      }
+      nud() {
+        const name = this.parser.parseNextExpression(this.leftBindingPower, Expressions.String);
+        this.parser.skipToken(Tokens.Instructions.As);
+        const statement = this.parser.parseNextExpression(30, Expressions.Statement);
+        return new Expressions.Define(name, statement);
+      }
+    },
+    If: class If extends Token {
+      constructor(parser) {
+        super(90, 'if', parser);
+      }
+      nud() {
+        const condition =
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
+        this.parser.skipToken(Tokens.Instructions.Then);
+        const statement = this.parser.parseNextExpression(30, Expressions.Statement);
+        return new Expressions.If(condition, statement);
+      }
+    },
     Next: class Next extends Token {
       constructor(parser) {
         super(15, 'next', parser);
@@ -341,6 +399,11 @@ const Tokens = {
         return new Expressions.Skip();
       }
     },
+    Then: class Then extends Token {
+      constructor(parser) {
+        super(10, 'then', parser);
+      }
+    },
     Unless: class Unless extends Token {
       constructor(parser) {
         super(90, 'unless', parser);
@@ -348,7 +411,7 @@ const Tokens = {
       nud() {
         const condition =
           this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
-        this.parser.skipToken(Tokens.Instructions.Do);
+        this.parser.skipToken(Tokens.Instructions.Next);
         const statement = this.parser.parseNextExpression(30, Expressions.statement);
         return new Expressions.Unless(condition, statement);
       }
@@ -380,6 +443,18 @@ const Tokens = {
         this.parser.skipToken(Tokens.Instructions.Do);
         const statement = this.parser.parseNextExpression(30, Expressions.statement);
         return new Expressions.Whenever(condition, statement);
+      }
+    },
+    While: class While extends Token {
+      constructor(parser) {
+        super(90, 'while', parser);
+      }
+      nud() {
+        const condition =
+          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
+        this.parser.skipToken(Tokens.Instructions.Do);
+        const statement = this.parser.parseNextExpression(30, Expressions.statement);
+        return new Expressions.While(condition, statement);
       }
     },
   },
@@ -562,7 +637,7 @@ const Tokens = {
     },
     LogicalAnd: class LogicalAnd extends Token {
       constructor(parser) {
-        super(100, '^', parser);
+        super(100, '&', parser);
       }
       led(left) {
         const right =
@@ -656,7 +731,7 @@ class SculpParser {
           case ',': yield new Tokens.Operators.ListSeparator(this); break;
           case '||': yield new Tokens.Operators.Parallel(this); break;
           case ':': yield new Tokens.Operators.Colon(this); break;
-          case '^': yield new Tokens.Operators.LogicalAnd(this); break;
+          case '&': yield new Tokens.Operators.LogicalAnd(this); break;
           case 'v': yield new Tokens.Operators.LogicalOr(this); break;
           case '{': yield new Tokens.Operators.LeftBracket(this); break;
           case '}': yield new Tokens.Operators.RightBracket(this); break;
@@ -667,16 +742,21 @@ class SculpParser {
           case 'usr': yield new Tokens.Operators.MatchUser(this); break;
 
           // Instructions
+          case 'as': yield new Tokens.Instructions.As(this); break;
           case 'do': yield new Tokens.Instructions.Do(this); break;
           case 'enter': yield new Tokens.Instructions.Enter(this); break;
           case 'exit': yield new Tokens.Instructions.Exit(this); break;
+          case 'def': yield new Tokens.Instructions.Define(this); break;
+          case 'if': yield new Tokens.Instructions.If(this); break;
+          case 'next': yield new Tokens.Instructions.Next(this); break;
           case 'repeat': yield new Tokens.Instructions.Repeat(this); break;
           case 'skip': yield new Tokens.Instructions.Skip(this); break;
+          case 'then': yield new Tokens.Instructions.Then(this); break;
           case 'until': yield new Tokens.Instructions.Until(this); break;
           case 'unless': yield new Tokens.Instructions.Unless(this); break;
           case 'when': yield new Tokens.Instructions.When(this); break;
           case 'whenever': yield new Tokens.Instructions.Whenever(this); break;
-          case 'next': yield new Tokens.Instructions.Next(this); break;
+          case 'while': yield new Tokens.Instructions.While(this); break;
 
           // Literals
           case '"': stringStart = tokenRegex.lastIndex; break;
