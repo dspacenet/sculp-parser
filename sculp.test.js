@@ -55,6 +55,16 @@ describe('The SCULP Parser', () => {
     expect(result.toString()).toBe('exit @ "clock" do skip');
   });
 
+  it('should properly parse "[a]*"', () => {
+    const result = parser.parse('when ["a"]* do skip');
+    expect(result.toString()).toBe('when ["a"]* do skip');
+  });
+
+  it('should properly parse "[a v b]*"', () => {
+    const result = parser.parse('when ["a" v "b"]* do skip');
+    expect(result.toString()).toBe('when ["a" v "b"]* do skip');
+  });
+
   it('should properly parse "do process until constraint"', () => {
     const result = parser.parse('do post("Bla Bla Bla") until *."stop!".*');
     expect(result.toString()).toBe('do post("Bla Bla Bla") until * . "stop!" . *');

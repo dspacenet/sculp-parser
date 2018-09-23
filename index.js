@@ -134,6 +134,26 @@ Expressions.ParallelExecution = class ParallelExecution extends Expressions.Stat
     return `(${this.statements.join(' || ')})`;
   }
 };
+Expressions.PatternAnd = class PatternAnd extends Expressions.Pattern {
+  constructor(left, right) {
+    super();
+    this.patterns = right instanceof Expressions.PatternAnd ? right.constraints : [right];
+    this.patterns.unshift(left);
+  }
+  toString() {
+    return `(${this.patterns.join(' & ')})`;
+  }
+};
+Expressions.PatternOr = class PatternOr extends Expressions.Pattern {
+  constructor(left, right) {
+    super();
+    this.patterns = right instanceof Expressions.PatternOr ? right.patterns : [right];
+    this.patterns.unshift(left);
+  }
+  toString() {
+    return `${this.patterns.join(' v ')}`;
+  }
+};
 Expressions.LogicalAnd = class LogicalAnd extends Expressions.Constraint {
   constructor(left, right) {
     super();
@@ -525,6 +545,17 @@ const Tokens = {
         return list instanceof Expressions.MatchList ? list : new Expressions.MatchList(list);
       }
     },
+    LeftSquareBracket: class LeftSquareBracket extends Token {
+      constructor(parser) {
+        super(90, '[', parser);
+      }
+      nud() {
+        const pattern = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
+        this.parser.skipToken(Tokens.Operators.RightSquareBracket);
+        this.parser.skipToken(Tokens.Operators.Asterisk);
+        return new Expressions.Pattern(`[${pattern}]*`);
+      }
+    },
     ListSeparator: class ListSeparator extends Token {
       constructor(parser) {
         super(100, ',', parser);
@@ -548,12 +579,17 @@ const Tokens = {
         super(0, '}', parser);
       }
     },
+    RightSquareBracket: class RightSquareBracket extends Token {
+      constructor(parser) {
+        super(0, ']', parser);
+      }
+    },
     RightParentheses: class RightParentheses extends Token {
       constructor(parser) {
         super(0, ')', parser);
       }
     },
-    MatchAll: class MatchAll extends Token {
+    Asterisk: class Asterisk extends Token {
       constructor(parser) {
         super(0, '*', parser);
       }
@@ -640,12 +676,19 @@ const Tokens = {
         super(100, '&', parser);
       }
       led(left) {
-        const right =
-          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
-        if (left instanceof Expressions.Constraint) {
+        const right = this.parser.parseNextExpression(
+          this.leftBindingPower,
+          [Expressions.Constraint, Expressions.Pattern],
+        );
+        if (left instanceof Expressions.Pattern && right instanceof Expressions.Pattern) {
+          return new Expressions.PatternAnd(left, right);
+        } else if (
+          left instanceof Expressions.Constraint &&
+          right instanceof Expressions.Constraint
+        ) {
           return new Expressions.LogicalAnd(left, right);
         }
-        throw SyntaxError(`Expecting Constraint but found ${left.constructor.name}`);
+        throw SyntaxError(`Invalid operation And between ${left.constructor.name} and ${right.constructor.name}`);
       }
     },
     LogicalOr: class LogicalOr extends Token {
@@ -653,12 +696,19 @@ const Tokens = {
         super(95, 'v', parser);
       }
       led(left) {
-        const right =
-          this.parser.parseNextExpression(this.leftBindingPower, Expressions.Constraint);
-        if (left instanceof Expressions.Constraint) {
+        const right = this.parser.parseNextExpression(
+          this.leftBindingPower,
+          [Expressions.Constraint, Expressions.Pattern],
+        );
+        if (left instanceof Expressions.Pattern && right instanceof Expressions.Pattern) {
+          return new Expressions.PatternOr(left, right);
+        } else if (
+          left instanceof Expressions.Constraint &&
+          right instanceof Expressions.Constraint
+        ) {
           return new Expressions.LogicalOr(left, right);
         }
-        throw SyntaxError(`Expecting Constraint but found ${left.constructor.name}`);
+        throw SyntaxError(`Invalid operation Or between ${left.constructor.name} and ${right.constructor.name}`);
       }
     },
   },
@@ -724,7 +774,7 @@ class SculpParser {
         switch (token[1].toLowerCase()) {
           // Operators
           case '@': yield new Tokens.Operators.At(this); break;
-          case '*': yield new Tokens.Operators.MatchAll(this); break;
+          case '*': yield new Tokens.Operators.Asterisk(this); break;
           case '.': yield new Tokens.Operators.PatternConcatenation(this); break;
           case '(': yield new Tokens.Operators.LeftParentheses(this); break;
           case ')': yield new Tokens.Operators.RightParentheses(this); break;
@@ -735,6 +785,8 @@ class SculpParser {
           case 'v': yield new Tokens.Operators.LogicalOr(this); break;
           case '{': yield new Tokens.Operators.LeftBracket(this); break;
           case '}': yield new Tokens.Operators.RightBracket(this); break;
+          case '[': yield new Tokens.Operators.LeftSquareBracket(this); break;
+          case ']': yield new Tokens.Operators.RightSquareBracket(this); break;
 
           // Constraints
           case 'body': yield new Tokens.Operators.MatchBody(this); break;

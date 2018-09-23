@@ -1,6 +1,6 @@
 {
   "name": "@dspacenet/sculp-parser",
-  "version": "1.5.5",
+  "version": "1.5.6",
   "description": "TDOP SCULP Parser",
   "main": "index.js",
   "scripts": {
