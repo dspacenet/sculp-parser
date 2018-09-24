@@ -597,14 +597,14 @@ const Tokens = {
         return new Expressions.Pattern(this.symbol);
       }
     },
-    MatchBody: class MatchMessage extends Token {
+    MatchBody: class MatchBody extends Token {
       constructor(parser) {
-        super(110, 'body', parser);
+        super(110, 'txt', parser);
       }
       nud() {
         this.parser.skipToken(Tokens.Operators.Colon);
         const content = this.parser.parseNextExpression(this.leftBindingPower, Expressions.Pattern);
-        return new Expressions.Match('body', content);
+        return new Expressions.Match('txt', content);
       }
     },
     MatchPID: class MatchPID extends Token {
@@ -789,7 +789,7 @@ class SculpParser {
           case ']': yield new Tokens.Operators.RightSquareBracket(this); break;
 
           // Constraints
-          case 'body': yield new Tokens.Operators.MatchBody(this); break;
+          case 'txt': yield new Tokens.Operators.MatchBody(this); break;
           case 'pid': yield new Tokens.Operators.MatchPID(this); break;
           case 'usr': yield new Tokens.Operators.MatchUser(this); break;
 
